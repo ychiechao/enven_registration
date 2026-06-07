@@ -1,0 +1,4 @@
+.dev.vars
+*.json.key
+node_modules/
+.wrangler/

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>活動報名 — 管理後台</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+      padding: 1.5rem 1rem;
+      min-height: 100vh;
+    }
+    h1 { margin: 0 0 1.5rem; font-size: 1.5rem; color: #1a1a2e; }
+    h2 { font-size: 1.1rem; color: #333; margin: 0 0 1rem; border-bottom: 2px solid #e5e7eb; padding-bottom: .5rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.2rem; max-width: 1100px; margin: 0 auto; }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.07);
+      padding: 1.5rem;
+    }
+    .stat { font-size: 2rem; font-weight: 800; color: #6366f1; }
+    .stat-label { color: #888; font-size: .85rem; margin-top: .2rem; }
+    .badge {
+      display: inline-block;
+      padding: .25rem .75rem;
+      border-radius: 999px;
+      font-size: .82rem;
+      font-weight: 600;
+      margin-bottom: .75rem;
+    }
+    .badge-open { background: #d1fae5; color: #065f46; }
+    .badge-closed { background: #fee2e2; color: #991b1b; }
+    input[type=text], input[type=number], input[type=password] {
+      width: 100%;
+      padding: .55rem .75rem;
+      border: 1.5px solid #d1d5db;
+      border-radius: 8px;
+      font-size: .95rem;
+      outline: none;
+      transition: border-color .2s;
+      margin-bottom: .75rem;
+    }
+    input:focus { border-color: #6366f1; }
+    .btn {
+      padding: .55rem 1.2rem;
+      border: none;
+      border-radius: 8px;
+      font-size: .9rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .btn-primary { background: #6366f1; color: #fff; }
+    .btn-primary:hover { background: #4f46e5; }
+    .btn-danger { background: #ef4444; color: #fff; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-success { background: #10b981; color: #fff; }
+    .btn-success:hover { background: #059669; }
+    .btn-sm { padding: .35rem .8rem; font-size: .82rem; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .alert { padding: .75rem 1rem; border-radius: 8px; font-size: .88rem; margin-top: .75rem; }
+    .alert-error { background: #fee2e2; color: #991b1b; }
+    .alert-success { background: #d1fae5; color: #065f46; }
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    th { background: #f3f4f6; text-align: left; padding: .5rem .75rem; font-weight: 600; color: #555; }
+    td { padding: .45rem .75rem; border-bottom: 1px solid #e5e7eb; color: #333; }
+    tr:last-child td { border: none; }
+    .schema-list { list-style: none; padding: 0; margin: 0; }
+    .schema-list li {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .4rem 0;
+      border-bottom: 1px solid #f3f4f6;
+      font-size: .88rem;
+    }
+    .schema-list li:last-child { border: none; }
+    .tag {
+      font-size: .72rem;
+      padding: .15rem .5rem;
+      border-radius: 4px;
+      background: #e0e7ff;
+      color: #3730a3;
+      font-weight: 600;
+    }
+    .tag-req { background: #fee2e2; color: #991b1b; }
+    #login-screen {
+      max-width: 360px;
+      margin: 4rem auto;
+    }
+    .full-card { max-width: 1100px; margin: 1.2rem auto; }
+    .table-wrap { overflow-x: auto; }
+    .row-gap { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; margin-bottom: .75rem; }
+  </style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-screen" class="card" style="display:none">
+  <h1>管理後台登入</h1>
+  <input type="password" id="pw-input" placeholder="請輸入管理密碼" />
+  <button class="btn btn-primary" onclick="doLogin()" style="width:100%">登入</button>
+  <div id="login-alert" style="display:none" class="alert alert-error"></div>
+</div>
+
+<!-- Main UI -->
+<div id="main-ui" style="display:none; max-width:1100px; margin:0 auto;">
+  <h1>活動報名管理後台</h1>
+
+  <div class="grid">
+
+    <!-- Status card -->
+    <div class="card">
+      <h2>報名狀態</h2>
+      <span id="status-badge" class="badge"></span>
+      <div class="stat" id="stat-count">—</div>
+      <div class="stat-label">已報名人數 / <span id="stat-limit">—</span> 人上限</div>
+      <div style="margin-top:1rem; display:flex; gap:.6rem; flex-wrap:wrap;">
+        <button class="btn btn-success" onclick="toggleOpen(true)">開放報名</button>
+        <button class="btn btn-danger" onclick="toggleOpen(false)">關閉報名</button>
+      </div>
+      <div id="status-alert" style="display:none" class="alert"></div>
+    </div>
+
+    <!-- Limit card -->
+    <div class="card">
+      <h2>設定人數上限</h2>
+      <input type="number" id="limit-input" min="1" placeholder="例如：50" />
+      <button class="btn btn-primary" onclick="saveLimit()">儲存上限</button>
+      <div id="limit-alert" style="display:none" class="alert"></div>
+    </div>
+
+    <!-- Import form card -->
+    <div class="card">
+      <h2>匯入 Google Form 欄位</h2>
+      <input type="text" id="form-url-input" placeholder="貼上 Google Form URL 或 Form ID" />
+      <button class="btn btn-primary" onclick="importForm()">匯入表單</button>
+      <div id="import-alert" style="display:none" class="alert"></div>
+    </div>
+
+  </div>
+
+  <!-- Schema preview -->
+  <div class="card full-card">
+    <h2>目前表單欄位 <button class="btn btn-sm btn-primary" style="margin-left:.5rem" onclick="loadStatus()">重新整理</button></h2>
+    <ul class="schema-list" id="schema-list"><li>載入中…</li></ul>
+  </div>
+
+  <!-- Registrants -->
+  <div class="card full-card">
+    <h2>報名名單
+      <button class="btn btn-sm btn-primary" style="margin-left:.5rem" onclick="loadData()">讀取名單</button>
+      <button class="btn btn-sm btn-success" style="margin-left:.5rem" onclick="exportCsv()">匯出 CSV</button>
+    </h2>
+    <div id="data-alert" style="display:none" class="alert"></div>
+    <div class="table-wrap">
+      <table id="data-table">
+        <thead id="data-thead"><tr><th>尚未載入</th></tr></thead>
+        <tbody id="data-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api';
+let adminPw = '';
+let currentHeaders = [];
+let currentRecords = [];
+
+// ─── Login ────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('login-screen').style.display = 'block';
+  document.getElementById('pw-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+});
+
+async function doLogin() {
+  const pw = document.getElementById('pw-input').value.trim();
+  if (!pw) return;
+  // Quick validation: try GET /api/admin/data with this password
+  const res = await fetch(`${API}/admin/data`, { headers: { 'X-Admin-Password': pw } });
+  if (res.status === 401) {
+    showAlert('login-alert', '密碼錯誤');
+    return;
+  }
+  adminPw = pw;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('main-ui').style.display = 'block';
+  await loadStatus();
+  parseDataResponse(await res.json());
+}
+
+// ─── Status ───────────────────────────────────────────────
+async function loadStatus() {
+  const res = await fetch(`${API}/status`);
+  const s = await res.json();
+
+  const badge = document.getElementById('status-badge');
+  badge.textContent = s.isOpen ? '開放中' : '已關閉';
+  badge.className = `badge ${s.isOpen ? 'badge-open' : 'badge-closed'}`;
+
+  document.getElementById('stat-count').textContent = s.count;
+  document.getElementById('stat-limit').textContent = s.limit;
+  document.getElementById('limit-input').placeholder = `目前上限：${s.limit}`;
+
+  renderSchema(s.formSchema || []);
+}
+
+// ─── Toggle open/close ────────────────────────────────────
+async function toggleOpen(isOpen) {
+  const res = await adminPost(`${API}/admin/settings`, { isOpen });
+  const json = await res.json();
+  if (!res.ok) { showAlert('status-alert', json.error, true); return; }
+  showAlert('status-alert', `已${isOpen ? '開放' : '關閉'}報名`, false);
+  await loadStatus();
+}
+
+// ─── Save limit ───────────────────────────────────────────
+async function saveLimit() {
+  const val = parseInt(document.getElementById('limit-input').value, 10);
+  if (!val || val < 1) { showAlert('limit-alert', '請輸入有效人數', true); return; }
+  const res = await adminPost(`${API}/admin/settings`, { limit: val });
+  const json = await res.json();
+  if (!res.ok) { showAlert('limit-alert', json.error, true); return; }
+  showAlert('limit-alert', '上限已更新', false);
+  await loadStatus();
+}
+
+// ─── Import form ──────────────────────────────────────────
+async function importForm() {
+  const raw = document.getElementById('form-url-input').value.trim();
+  const formId = extractFormId(raw);
+  if (!formId) { showAlert('import-alert', '無法解析 Form ID，請貼上正確的 Google Form URL 或 ID', true); return; }
+
+  showAlert('import-alert', '匯入中…', false);
+  const res = await adminPost(`${API}/admin/import-form`, { formId });
+  const json = await res.json();
+  if (!res.ok) { showAlert('import-alert', json.error, true); return; }
+  showAlert('import-alert', `匯入成功，共 ${json.schema.length} 個欄位`, false);
+  renderSchema(json.schema);
+}
+
+function extractFormId(raw) {
+  // Accept full URL like https://docs.google.com/forms/d/FORM_ID/edit
+  const m = raw.match(/\/forms\/d\/([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  // Or plain ID
+  if (/^[a-zA-Z0-9_-]{20,}$/.test(raw)) return raw;
+  return null;
+}
+
+// ─── Schema render ────────────────────────────────────────
+function renderSchema(schema) {
+  const list = document.getElementById('schema-list');
+  if (!schema.length) { list.innerHTML = '<li>尚無匯入的表單欄位</li>'; return; }
+  list.innerHTML = schema.map(f => `
+    <li>
+      <strong>${esc(f.title)}</strong>
+      <span class="tag">${f.type}</span>
+      ${f.required ? '<span class="tag tag-req">必填</span>' : ''}
+      ${f.options ? `<span style="color:#888;font-size:.8rem">${f.options.map(esc).join(' / ')}</span>` : ''}
+    </li>
+  `).join('');
+}
+
+// ─── Data table ───────────────────────────────────────────
+async function loadData() {
+  const res = await fetch(`${API}/admin/data`, { headers: { 'X-Admin-Password': adminPw } });
+  const json = await res.json();
+  if (!res.ok) { showAlert('data-alert', json.error, true); return; }
+  parseDataResponse(json);
+}
+
+function parseDataResponse(json) {
+  currentHeaders = json.headers || [];
+  currentRecords = json.records || [];
+
+  const thead = document.getElementById('data-thead');
+  const tbody = document.getElementById('data-tbody');
+
+  thead.innerHTML = '<tr>' + currentHeaders.map(h => `<th>${esc(h)}</th>`).join('') + '</tr>';
+  tbody.innerHTML = currentRecords.map(r =>
+    '<tr>' + currentHeaders.map(h => `<td>${esc(r[h] || '')}</td>`).join('') + '</tr>'
+  ).join('');
+
+  if (!currentRecords.length) {
+    tbody.innerHTML = `<tr><td colspan="${currentHeaders.length || 1}" style="text-align:center;color:#aaa">尚無報名資料</td></tr>`;
+  }
+}
+
+function exportCsv() {
+  if (!currentHeaders.length) { alert('請先讀取名單'); return; }
+  const rows = [currentHeaders, ...currentRecords.map(r => currentHeaders.map(h => r[h] || ''))];
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `報名名單_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// ─── Helpers ──────────────────────────────────────────────
+async function adminPost(url, body) {
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Password': adminPw },
+    body: JSON.stringify(body),
+  });
+}
+
+function showAlert(id, msg, isError = false) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = `alert ${isError ? 'alert-error' : 'alert-success'}`;
+  el.style.display = 'block';
+  if (!isError) setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

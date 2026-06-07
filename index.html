@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>活動報名</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f5f7fa;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      padding: 2rem 1rem;
+      min-height: 100vh;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.08);
+      padding: 2rem;
+      max-width: 560px;
+      width: 100%;
+      align-self: flex-start;
+    }
+    h1 { margin: 0 0 .5rem; font-size: 1.6rem; color: #1a1a2e; }
+    .subtitle { color: #666; margin-bottom: 1.5rem; font-size: .95rem; }
+    .badge {
+      display: inline-block;
+      padding: .25rem .75rem;
+      border-radius: 999px;
+      font-size: .82rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+    .badge-open { background: #d1fae5; color: #065f46; }
+    .badge-closed { background: #fee2e2; color: #991b1b; }
+    .badge-full { background: #fef3c7; color: #92400e; }
+    .progress-bar-wrap { background: #e5e7eb; border-radius: 8px; height: 8px; margin-bottom: 1.5rem; }
+    .progress-bar { background: #6366f1; height: 8px; border-radius: 8px; transition: width .4s; }
+    .progress-label { font-size: .82rem; color: #666; margin-top: .3rem; }
+    .field { margin-bottom: 1.2rem; }
+    label { display: block; font-weight: 600; margin-bottom: .4rem; font-size: .9rem; color: #333; }
+    label .req { color: #e53e3e; margin-left: 2px; }
+    input[type=text], input[type=email], textarea, select {
+      width: 100%;
+      padding: .55rem .75rem;
+      border: 1.5px solid #d1d5db;
+      border-radius: 8px;
+      font-size: .95rem;
+      transition: border-color .2s;
+      outline: none;
+    }
+    input:focus, textarea:focus, select:focus { border-color: #6366f1; }
+    textarea { resize: vertical; min-height: 80px; }
+    .radio-group, .check-group { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .4rem; }
+    .radio-group label, .check-group label {
+      font-weight: 400;
+      display: flex;
+      align-items: center;
+      gap: .35rem;
+      background: #f3f4f6;
+      padding: .35rem .8rem;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 1.5px solid transparent;
+      transition: border-color .2s;
+    }
+    .radio-group label:has(input:checked), .check-group label:has(input:checked) {
+      border-color: #6366f1;
+      background: #eef2ff;
+    }
+    .scale-row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+    .scale-row button {
+      width: 40px; height: 40px;
+      border: 1.5px solid #d1d5db;
+      border-radius: 8px;
+      background: #f9fafb;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all .15s;
+    }
+    .scale-row button.selected { background: #6366f1; color: #fff; border-color: #6366f1; }
+    .btn {
+      width: 100%;
+      padding: .75rem;
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .2s;
+      margin-top: .5rem;
+    }
+    .btn:hover { background: #4f46e5; }
+    .btn:disabled { background: #a5b4fc; cursor: not-allowed; }
+    .alert {
+      padding: .8rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      font-size: .9rem;
+    }
+    .alert-error { background: #fee2e2; color: #991b1b; }
+    .alert-success { background: #d1fae5; color: #065f46; }
+    #notice {
+      text-align: center;
+      padding: 2rem;
+      font-size: 1.1rem;
+      color: #555;
+    }
+    #success-screen { display: none; text-align: center; }
+    #success-screen .big-check { font-size: 3rem; }
+    #success-screen h2 { color: #065f46; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>活動報名</h1>
+  <p class="subtitle" id="event-subtitle">載入中…</p>
+
+  <div id="loading-state">載入表單中，請稍候…</div>
+
+  <div id="notice" style="display:none"></div>
+
+  <div id="form-section" style="display:none">
+    <span id="status-badge" class="badge"></span>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+    </div>
+    <p class="progress-label" id="progress-label"></p>
+
+    <div id="alert-box" style="display:none" class="alert"></div>
+
+    <form id="reg-form">
+      <div id="form-fields"></div>
+      <button type="submit" class="btn" id="submit-btn">送出報名</button>
+    </form>
+  </div>
+
+  <div id="success-screen">
+    <div class="big-check">✅</div>
+    <h2>報名成功！</h2>
+    <p>感謝您的報名，我們將於活動前通知您詳細資訊。</p>
+  </div>
+</div>
+
+<script>
+const API = '/api';
+
+async function init() {
+  let status;
+  try {
+    const res = await fetch(`${API}/status`);
+    status = await res.json();
+  } catch {
+    showNotice('無法連線，請重新整理頁面。');
+    return;
+  }
+
+  document.getElementById('loading-state').style.display = 'none';
+
+  if (!status.isOpen) {
+    showNotice('報名尚未開放，請稍後再來。');
+    return;
+  }
+  if (status.count >= status.limit) {
+    showNotice('名額已滿，感謝您的關注！');
+    return;
+  }
+
+  renderForm(status);
+}
+
+function showNotice(msg) {
+  const n = document.getElementById('notice');
+  n.textContent = msg;
+  n.style.display = 'block';
+}
+
+function renderForm(status) {
+  const section = document.getElementById('form-section');
+  section.style.display = 'block';
+
+  // Badge
+  const badge = document.getElementById('status-badge');
+  badge.textContent = '報名開放中';
+  badge.className = 'badge badge-open';
+
+  // Progress
+  const pct = Math.round((status.count / status.limit) * 100);
+  document.getElementById('progress-bar').style.width = `${pct}%`;
+  document.getElementById('progress-label').textContent =
+    `已報名 ${status.count} 人 / 上限 ${status.limit} 人`;
+
+  // Build fields
+  const container = document.getElementById('form-fields');
+
+  // Email is always first
+  container.appendChild(buildTextField({ id: '_email', title: 'Email', type: 'TEXT', required: true, inputType: 'email' }));
+
+  for (const field of (status.formSchema || [])) {
+    let el;
+    switch (field.type) {
+      case 'TEXTAREA': el = buildTextarea(field); break;
+      case 'RADIO':    el = buildRadio(field); break;
+      case 'CHECKBOX': el = buildCheckbox(field); break;
+      case 'SCALE':    el = buildScale(field); break;
+      default:         el = buildTextField(field); break;
+    }
+    container.appendChild(el);
+  }
+
+  // Submit
+  document.getElementById('reg-form').addEventListener('submit', handleSubmit);
+}
+
+function buildTextField({ id, title, required, inputType = 'text' }) {
+  const wrap = div('field');
+  wrap.innerHTML = `<label for="f_${id}">${esc(title)}${required ? '<span class="req">*</span>' : ''}</label>
+    <input type="${inputType}" id="f_${id}" name="${id}" ${required ? 'required' : ''} />`;
+  return wrap;
+}
+
+function buildTextarea({ id, title, required }) {
+  const wrap = div('field');
+  wrap.innerHTML = `<label for="f_${id}">${esc(title)}${required ? '<span class="req">*</span>' : ''}</label>
+    <textarea id="f_${id}" name="${id}" ${required ? 'required' : ''}></textarea>`;
+  return wrap;
+}
+
+function buildRadio({ id, title, required, options }) {
+  const wrap = div('field');
+  const opts = (options || []).map((o, i) =>
+    `<label><input type="radio" name="${id}" value="${esc(o)}" ${required && i === 0 ? '' : ''} />${esc(o)}</label>`
+  ).join('');
+  wrap.innerHTML = `<label>${esc(title)}${required ? '<span class="req">*</span>' : ''}</label>
+    <div class="radio-group">${opts}</div>`;
+  return wrap;
+}
+
+function buildCheckbox({ id, title, required, options }) {
+  const wrap = div('field');
+  const opts = (options || []).map((o) =>
+    `<label><input type="checkbox" name="${id}" value="${esc(o)}" />${esc(o)}</label>`
+  ).join('');
+  wrap.innerHTML = `<label>${esc(title)}${required ? '<span class="req">*</span>' : ''}</label>
+    <div class="check-group" data-field-id="${id}">${opts}</div>`;
+  return wrap;
+}
+
+function buildScale({ id, title, required, min = 1, max = 5 }) {
+  const wrap = div('field');
+  let btns = '';
+  for (let i = min; i <= max; i++) {
+    btns += `<button type="button" data-val="${i}" onclick="selectScale(this,'${id}')">${i}</button>`;
+  }
+  wrap.innerHTML = `<label>${esc(title)}${required ? '<span class="req">*</span>' : ''}</label>
+    <div class="scale-row" id="scale_${id}">${btns}</div>
+    <input type="hidden" name="${id}" id="scale_hidden_${id}" ${required ? 'required' : ''} />`;
+  return wrap;
+}
+
+window.selectScale = function(btn, id) {
+  btn.closest('.scale-row').querySelectorAll('button').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById(`scale_hidden_${id}`).value = btn.dataset.val;
+};
+
+async function handleSubmit(e) {
+  e.preventDefault();
+  const form = e.target;
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = '提交中…';
+  hideAlert();
+
+  const data = {};
+  const fd = new FormData(form);
+
+  // collect checkboxes as comma-separated
+  const checkFields = {};
+  form.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    if (!checkFields[cb.name]) checkFields[cb.name] = [];
+    if (cb.checked) checkFields[cb.name].push(cb.value);
+  });
+
+  for (const [k, v] of fd.entries()) {
+    if (form.querySelector(`input[type=checkbox][name="${k}"]`)) continue; // handled below
+    data[k] = v;
+  }
+  for (const [k, vals] of Object.entries(checkFields)) {
+    data[k] = vals.join(', ');
+  }
+
+  data.email = data['_email'];
+  delete data['_email'];
+
+  try {
+    const res = await fetch(`${API}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      showAlert(json.error || '提交失敗，請再試一次');
+      btn.disabled = false;
+      btn.textContent = '送出報名';
+      return;
+    }
+    document.getElementById('form-section').style.display = 'none';
+    document.getElementById('success-screen').style.display = 'block';
+  } catch {
+    showAlert('網路錯誤，請再試一次');
+    btn.disabled = false;
+    btn.textContent = '送出報名';
+  }
+}
+
+function showAlert(msg) {
+  const box = document.getElementById('alert-box');
+  box.textContent = msg;
+  box.className = 'alert alert-error';
+  box.style.display = 'block';
+}
+function hideAlert() {
+  document.getElementById('alert-box').style.display = 'none';
+}
+
+function div(cls) {
+  const d = document.createElement('div');
+  d.className = cls;
+  return d;
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+init();
+</script>
+</body>
+</html>
